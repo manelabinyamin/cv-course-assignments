@@ -1,0 +1,5 @@
+*.zip
+__pycache__/
+datasets/
+cifar-10-batches-py/
+.DS_Store
