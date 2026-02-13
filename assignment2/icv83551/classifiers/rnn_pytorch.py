@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+
 from ..rnn_layers_pytorch import *
 
 
@@ -138,7 +139,15 @@ class CaptioningRNN:
         #                                                                          #
         # You also don't have to implement the backward pass.                      #
         ############################################################################
-        # 
+        initial_hidden = features @ W_proj + b_proj
+        word_embeddings = W_embed[captions_in]
+        if self.cell_type == "rnn":
+            hidden_states = rnn_forward(word_embeddings, initial_hidden, Wx, Wh, b)
+        else:
+            hidden_states = lstm_forward(word_embeddings, initial_hidden, Wx, Wh, b)
+        scores = hidden_states.view(-1, hidden_states.shape[2]).mm(W_vocab) + b_vocab
+        scores = scores.view(*hidden_states.shape[:2], -1)
+        loss = temporal_softmax_loss(scores, captions_out, mask)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -202,7 +211,38 @@ class CaptioningRNN:
         # NOTE: we are still working over minibatches in this function. Also if   #
         # you are using an LSTM, initialize the first cell state to zeros.        #
         ###########################################################################
-        # 
+        # Step 1: Initialize hidden state from image features
+        hidden_state = features @ W_proj + b_proj  # Shape: (N, H)
+
+        # For LSTM, also initialize cell state to zeros
+        if self.cell_type == "lstm":
+            cell_state = torch.zeros_like(hidden_state)  # Shape: (N, H)
+
+        # Initialize the current word to <START> token for all samples in batch
+        current_word = torch.full((N,), self._start, dtype=torch.long)  # Shape: (N,)
+
+        # Generate words iteratively
+        for t in range(max_length):
+            # Step 1: Embed the current word
+            word_embed = W_embed[current_word]  # Shape: (N, W)
+
+            # Step 2: Make an RNN/LSTM step
+            if self.cell_type == "rnn":
+                hidden_state = rnn_step_forward(word_embed, hidden_state, Wx, Wh, b)
+            else:  # lstm
+                hidden_state, cell_state = lstm_step_forward(
+                    word_embed, hidden_state, cell_state, Wx, Wh, b
+                )
+
+            # Step 3: Apply affine transformation to get scores
+            scores = hidden_state @ W_vocab + b_vocab  # Shape: (N, V)
+
+            # Step 4: Select word with highest score
+            current_word = torch.argmax(scores, dim=1)  # Shape: (N,)
+
+            # Store the predicted word in captions
+            captions[:, t] = current_word
+
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################

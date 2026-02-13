@@ -3,13 +3,13 @@
 set -euo pipefail
 
 CODE=(
-	"cs231n/layers.py"
-	"cs231n/classifiers/fc_net.py"
-	"cs231n/optim.py"
-	"cs231n/solver.py"
-	"cs231n/classifiers/cnn.py"
-	"cs231n/im2col_cython.pyx"
-  	"cs231n/classifiers/rnn_pytorch.py"
+	"icv83551/layers.py"
+	"icv83551/classifiers/fc_net.py"
+	"icv83551/optim.py"
+	"icv83551/solver.py"
+	"icv83551/classifiers/cnn.py"
+	"icv83551/im2col_cython.pyx"
+  	"icv83551/classifiers/rnn_pytorch.py"
 )
 
 # these notebooks should ideally
@@ -20,7 +20,7 @@ NOTEBOOKS=(
 	"BatchNormalization.ipynb"
 	"Dropout.ipynb"
 	"ConvolutionalNetworks.ipynb"
-	"PyTorch.ipynb"
+	# "PyTorch.ipynb"
   	"RNN_Captioning_pytorch.ipynb"
 )
 FILES=( "${CODE[@]}" "${NOTEBOOKS[@]}" )
@@ -45,9 +45,9 @@ done
 
 echo -e "### Zipping file !!! ###"
 rm -f ${ZIP_FILENAME}
-zip -q "${ZIP_FILENAME}" -r ${NOTEBOOKS[@]} $(find . \( -name '*.py' -o -name '*.pyx' \)) "cs231n/saved" -x "makepdf.py"
+zip -q "${ZIP_FILENAME}" -r ${NOTEBOOKS[@]} $(find . \( -name '*.py' -o -name '*.pyx' \)) "icv83551/saved" -x "makepdf.py"
 
 echo -e "### Creating PDFs ###"
-python makepdf.py --notebooks "${NOTEBOOKS[@]}" --pdf_filename "${PDF_FILENAME}"
+python3 makepdf.py --notebooks "${NOTEBOOKS[@]}" --pdf_filename "${PDF_FILENAME}"
 
 echo -e "### Done! Please submit ${ZIP_FILENAME} and ${PDF_FILENAME} to Gradescope. ###"

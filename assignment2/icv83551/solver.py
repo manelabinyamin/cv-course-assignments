@@ -1,11 +1,10 @@
-from __future__ import print_function, division
-from future import standard_library
+# from __future__ import print_function, division
+# from future import standard_library
 
-standard_library.install_aliases()
-from builtins import range
-from builtins import object
+# standard_library.install_aliases()
 import os
 import pickle as pickle
+from builtins import object, range
 
 import numpy as np
 

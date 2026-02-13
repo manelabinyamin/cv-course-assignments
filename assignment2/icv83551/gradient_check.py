@@ -1,9 +1,7 @@
-from __future__ import print_function
 from builtins import range
-from past.builtins import xrange
+from random import randrange
 
 import numpy as np
-from random import randrange
 
 
 def eval_numerical_gradient(f, x, verbose=True, h=0.00001):
@@ -18,7 +16,6 @@ def eval_numerical_gradient(f, x, verbose=True, h=0.00001):
     # iterate over all indexes in x
     it = np.nditer(x, flags=["multi_index"], op_flags=["readwrite"])
     while not it.finished:
-
         # evaluate function at x+h
         ix = it.multi_index
         oldval = x[ix]

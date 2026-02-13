@@ -1,12 +1,17 @@
-from __future__ import print_function
-from future import standard_library
+# from future import standard_library
 
-standard_library.install_aliases()
+# standard_library.install_aliases()
+import io
+import os
+import ssl
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from builtins import range
-import urllib.request, urllib.error, urllib.parse, os, tempfile
 
 import numpy as np
-from imageio import imread
+from imageio import imread  # Assuming you're using imageio or similar for imread
 from PIL import Image
 
 """
@@ -57,13 +62,14 @@ def deprocess_image(img, rescale=False):
     return np.clip(255 * img, 0.0, 255.0).astype(np.uint8)
 
 
-def image_from_url(url):
+def image_from_url_old(url):
     """
     Read an image from a URL. Returns a numpy array with the pixel data.
     We write the image to a temporary file then read it back. Kinda gross.
     """
     try:
-        f = urllib.request.urlopen(url)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        f = urllib.request.urlopen(req)
         _, fname = tempfile.mkstemp()
         with open(fname, "wb") as ff:
             ff.write(f.read())
@@ -74,6 +80,26 @@ def image_from_url(url):
         print("URL Error: ", e.reason, url)
     except urllib.error.HTTPError as e:
         print("HTTP Error: ", e.code, url)
+
+
+def image_from_url(url):
+    """
+    Read an image from a URL directly into memory.
+    Uses an unverified SSL context to bypass certificate errors.
+    """
+    # Create a context that doesn't check certificates
+    context = ssl._create_unverified_context()
+
+    try:
+        req = urllib.request.Request(str(url), headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, context=context) as response:
+            # Read the data into a BytesIO buffer instead of a temp file
+            img_data = io.BytesIO(response.read())
+            return imread(img_data)
+
+    except Exception as e:
+        print(f"Error loading {url}: {e}")
+        return None
 
 
 def load_image(filename, size=None):
