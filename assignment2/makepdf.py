@@ -11,19 +11,47 @@ except ImportError:
     MERGE = False
 
 
+def notebook_to_pdf(notebook_file):
+    base = os.path.splitext(notebook_file)[0]
+    tex_file = base + ".tex"
+
+    # Step 1: Export to LaTeX
+    subprocess.run([
+        "jupyter", "nbconvert",
+        "--log-level", "CRITICAL",
+        "--to", "latex",
+        notebook_file,
+    ])
+
+    if not os.path.exists(tex_file):
+        return False
+
+    # Step 2: Fix TeX Live 2025 incompatibility — pandoc generates
+    # \def\LTcaptype{none} but newer longtable/hyperref expects a valid
+    # counter name, causing "No counter 'none' defined".
+    with open(tex_file, "r") as f:
+        tex = f.read()
+    tex = tex.replace(r"\def\LTcaptype{none}", r"\def\LTcaptype{table}")
+    with open(tex_file, "w") as f:
+        f.write(tex)
+
+    # Step 3: Compile with xelatex (twice for cross-references)
+    xelatex_args = ["xelatex", "-interaction=nonstopmode", "-quiet", tex_file]
+    subprocess.run(xelatex_args, capture_output=True)
+    subprocess.run(xelatex_args, capture_output=True)
+
+    # Step 4: Clean up auxiliary files
+    for ext in [".tex", ".aux", ".log", ".out"]:
+        aux = base + ext
+        if os.path.exists(aux):
+            os.remove(aux)
+
+    return os.path.exists(base + ".pdf")
+
+
 def main(files, pdf_name):
-    os_args = [
-        "jupyter",
-        "nbconvert",
-        "--log-level",
-        "CRITICAL",
-        "--to",
-        "pdf",
-    ]
     for f in files:
-        os_args.append(f)
-        subprocess.run(os_args)
-        os_args.pop()
+        notebook_to_pdf(f)
         print("Created PDF {}.".format(f))
     if MERGE:
         pdfs = [f.split(".")[0] + ".pdf" for f in files]

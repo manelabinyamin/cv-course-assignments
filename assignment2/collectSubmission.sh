@@ -20,7 +20,7 @@ NOTEBOOKS=(
 	"BatchNormalization.ipynb"
 	"Dropout.ipynb"
 	"ConvolutionalNetworks.ipynb"
-	# "PyTorch.ipynb"
+	"PyTorch.ipynb"
   	"RNN_Captioning_pytorch.ipynb"
 )
 FILES=( "${CODE[@]}" "${NOTEBOOKS[@]}" )
