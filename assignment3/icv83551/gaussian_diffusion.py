@@ -1,7 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
 from tqdm.auto import tqdm
-import math
 
 
 class GaussianDiffusion(nn.Module):
@@ -23,7 +24,9 @@ class GaussianDiffusion(nn.Module):
         assert objective in {
             "pred_noise",
             "pred_x_start",
-        }, "objective must be either pred_noise (predict noise) or pred_x_start (predict image start)"
+        }, (
+            "objective must be either pred_noise (predict noise) or pred_x_start (predict image start)"
+        )
 
         # A helper function to register some constants as buffers to ensure that
         # they are on the same device as model parameters.
@@ -102,7 +105,11 @@ class GaussianDiffusion(nn.Module):
         # Transform x_t and noise to get x_start according to Eq.(4) and Eq.(14).
         # Look at the coeffs in `__init__` method and use the `extract` function.
         ####################################################################
-
+        sqrt_alphas_cumprod = extract(self.sqrt_alphas_cumprod, t, x_t.shape)
+        sqrt_one_minus_alphas_cumprod = extract(
+            self.sqrt_one_minus_alphas_cumprod, t, x_t.shape
+        )
+        x_start = (x_t - sqrt_one_minus_alphas_cumprod * noise) / sqrt_alphas_cumprod
         ####################################################################
         return x_start
 
@@ -121,7 +128,13 @@ class GaussianDiffusion(nn.Module):
         # Transform x_t and noise to get x_start according to Eq.(4) and Eq.(14).
         # Look at the coeffs in `__init__` method and use the `extract` function.
         ####################################################################
-
+        sqrt_alphas_cumprod = extract(self.sqrt_alphas_cumprod, t, x_t.shape)
+        sqrt_one_minus_alphas_cumprod = extract(
+            self.sqrt_one_minus_alphas_cumprod, t, x_t.shape
+        )
+        pred_noise = (
+            x_t - sqrt_alphas_cumprod * x_start
+        ) / sqrt_one_minus_alphas_cumprod
         ####################################################################
         return pred_noise
 
@@ -172,9 +185,17 @@ class GaussianDiffusion(nn.Module):
         #   4. Get the mean and std for q(x_{t-1} | x_t, x_0) using self.q_posterior,
         #      and sample x_{t-1}.
         ##################################################################
-        
+        model_output = self.model(x_t, t, model_kwargs)
+        if self.objective == "pred_noise":
+            pred_noise = model_output
+            x_start = self.predict_start_from_noise(x_t, t, pred_noise)
+        else:
+            x_start = model_output
+            pred_noise = self.predict_noise_from_start(x_t, t, x_start)
+        x_start = torch.clamp(x_start, min=-1.0, max=1.0)
+        posterior_mean, posterior_std = self.q_posterior(x_start, x_t, t)
+        x_tm1 = posterior_mean + posterior_std * torch.randn_like(x_t)
         ##################################################################
-
         return x_tm1
 
     @torch.no_grad()
@@ -217,7 +238,11 @@ class GaussianDiffusion(nn.Module):
         # can be done as: x_t = mu + sigma * noise where noise is sampled from N(0, 1).
         # Approximately 3 lines of code.
         ####################################################################
-
+        sqrt_alphas_cumprod = extract(self.sqrt_alphas_cumprod, t, x_start.shape)
+        sqrt_one_minus_alphas_cumprod = extract(
+            self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
+        )
+        x_t = sqrt_alphas_cumprod * x_start + sqrt_one_minus_alphas_cumprod * noise
         ####################################################################
         return x_t
 
@@ -226,7 +251,9 @@ class GaussianDiffusion(nn.Module):
         t = torch.randint(0, nts, (b,), device=x_start.device).long()  # (b,)
         x_start = self.normalize(x_start)  # (b, *)
         noise = torch.randn_like(x_start)  # (b, *)
-        target = noise if self.objective == "pred_noise" else x_start  # (b, *)
+        target: torch.Tensor = (
+            noise if self.objective == "pred_noise" else x_start
+        )  # (b, *)
         loss_weight = extract(self.loss_weight, t, target.shape)  # (b, *)
         loss = None
 
@@ -238,7 +265,10 @@ class GaussianDiffusion(nn.Module):
         # Finally, compute the weighted MSE loss.
         # Approximately 3-4 lines of code.
         ####################################################################
-
+        x_t = self.q_sample(x_start, t, noise)
+        model_output: torch.Tensor = self.model(x_t, t, model_kwargs)
+        loss = loss_weight * (model_output - target).pow(2)
+        loss = loss.mean()
         ####################################################################
 
         return loss

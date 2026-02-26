@@ -1,11 +1,10 @@
 import copy
-from einops import rearrange
-from torch import einsum
+import math
 
-from torch import nn
 import torch
 import torch.nn.functional as F
-import math
+from einops import rearrange
+from torch import einsum, nn
 
 
 def exists(x):
@@ -180,7 +179,13 @@ class Unet(nn.Module):
             # Make sure to exactly follow this structure of ModuleList in order to
             # load a pretrained checkpoint.
             ##################################################################
-
+            down_block = nn.ModuleList(
+                [
+                    ResnetBlock(dim_in, dim_in, context_dim=context_dim),
+                    ResnetBlock(dim_in, dim_in, context_dim=context_dim),
+                    Downsample(dim_in, dim_out),
+                ]
+            )
             ##################################################################
             self.downs.append(down_block)
 
@@ -205,6 +210,13 @@ class Unet(nn.Module):
             # channels at the input of both ResnetBlocks.
             ##################################################################
 
+            up_block = nn.ModuleList(
+                [
+                    Upsample(dim_in, dim_out),
+                    ResnetBlock(dim_out * 2, dim_out, context_dim=context_dim),
+                    ResnetBlock(dim_out * 2, dim_out, context_dim=context_dim),
+                ]
+            )
             self.ups.append(up_block)
             ##################################################################
 
@@ -226,7 +238,10 @@ class Unet(nn.Module):
         # You will have to call self.forward two times.
         # For unconditional sampling, pass None in`text_emb`.
         ##################################################################
-
+        eps_cond = self.forward(x, time, model_kwargs=model_kwargs)
+        model_kwargs["text_emb"] = None
+        eps_uncond = self.forward(x, time, model_kwargs=model_kwargs)
+        x = (cfg_scale + 1) * eps_cond - cfg_scale * eps_uncond
         ##################################################################
 
         return x
@@ -281,7 +296,22 @@ class Unet(nn.Module):
         #      skip connection from the downsampling path.
         #    - Make sure to pass the context to each ResNet block.
         ##################################################################
+        skips = []
+        for ind, down_block in enumerate(self.downs):
+            x = down_block[0](x, context=context)
+            skips.append(x)
+            x = down_block[1](x, context=context)
+            skips.append(x)
+            x = down_block[2](x)
 
+        x = self.mid_block1(x, context=context)
+        x = self.mid_block2(x, context=context)
+        for ind, up_block in enumerate(self.ups):
+            x = up_block[0](x)
+            x = torch.cat((x, skips.pop()), dim=1)
+            x = up_block[1](x, context=context)
+            x = torch.cat((x, skips.pop()), dim=1)
+            x = up_block[2](x, context=context)
         ##################################################################
 
         # Final block

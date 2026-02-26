@@ -1,0 +1,23 @@
+[project]
+name = "cv-course-assignments"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "clip",
+    "decord>=0.6.0",
+    "ftfy>=6.3.1",
+    "h5py>=3.15.1",
+    "imageio>=2.37.2",
+    "matplotlib>=3.10.8",
+    "opencv-python>=4.13.0.92",
+    "regex>=2026.2.19",
+    "scikit-learn>=1.8.0",
+    "tensorflow-datasets>=4.9.9",
+    "torchvision>=0.25.0",
+    "tqdm>=4.67.3",
+]
+
+[tool.uv.sources]
+clip = { git = "https://github.com/openai/CLIP.git" }

@@ -1,9 +1,9 @@
 import numpy as np
+import torch
+from tqdm import tqdm
 
 from . import optim
-from .coco_utils import sample_coco_minibatch, decode_captions
-
-import torch
+from .coco_utils import decode_captions, sample_coco_minibatch
 
 
 class CaptioningSolverTransformer(object):
@@ -95,7 +95,6 @@ class CaptioningSolverTransformer(object):
         self.epoch = 0
         self.loss_history = []
 
-
     def _step(self):
         """
         Make a single gradient update. This is called by train() and should not
@@ -132,7 +131,7 @@ class CaptioningSolverTransformer(object):
         iterations_per_epoch = max(num_train // self.batch_size, 1)
         num_iterations = self.num_epochs * iterations_per_epoch
 
-        for t in range(num_iterations):
+        for t in tqdm(range(num_iterations)):
             self._step()
 
             # Maybe print training loss
@@ -177,7 +176,7 @@ class CaptioningSolverTransformer(object):
         y_flat = y.reshape(N * T)
         mask_flat = mask.reshape(N * T)
 
-        loss = torch.nn.functional.cross_entropy(x_flat,  y_flat, reduction='none')
+        loss = torch.nn.functional.cross_entropy(x_flat, y_flat, reduction="none")
         loss = torch.mul(loss, mask_flat)
         loss = torch.mean(loss)
 

@@ -1,6 +1,6 @@
-import numpy as np
 import copy
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -16,8 +16,16 @@ class CaptioningTransformer(nn.Module):
     works on sequences of length T, uses word vectors of dimension W, and
     operates on minibatches of size N.
     """
-    def __init__(self, word_to_idx, input_dim, wordvec_dim, num_heads=4,
-                 num_layers=2, max_length=50):
+
+    def __init__(
+        self,
+        word_to_idx,
+        input_dim,
+        wordvec_dim,
+        num_heads=4,
+        num_layers=2,
+        max_length=50,
+    ):
         """
         Construct a new CaptioningTransformer instance.
 
@@ -42,7 +50,9 @@ class CaptioningTransformer(nn.Module):
         self.embedding = nn.Embedding(vocab_size, wordvec_dim, padding_idx=self._null)
         self.positional_encoding = PositionalEncoding(wordvec_dim, max_len=max_length)
 
-        decoder_layer = TransformerDecoderLayer(input_dim=wordvec_dim, num_heads=num_heads)
+        decoder_layer = TransformerDecoderLayer(
+            input_dim=wordvec_dim, num_heads=num_heads
+        )
         self.transformer = TransformerDecoder(decoder_layer, num_layers=num_layers)
         self.apply(self._init_weights)
 
@@ -88,7 +98,23 @@ class CaptioningTransformer(nn.Module):
         #  3) Finally, apply the decoder features on the text & image embeddings   #
         #     along with the tgt_mask. Project the output to scores per token      #
         ############################################################################
+        # Embed captions and add positional encoding
+        captions_embedded = self.embedding(captions)  # (N, T, W)
+        captions_embedded = self.positional_encoding(captions_embedded)  # (N, T, W)
 
+        # Project image features to same dimension as word embeddings
+        features_proj = self.visual_projection(features)  # (N, W)
+        features_proj = features_proj.unsqueeze(1)  # (N, 1, W)
+
+        # Prepare mask for masking out future timesteps in captions
+        tgt_mask = torch.tril(torch.ones(captions.shape[1], captions.shape[1])).bool()
+        tgt_mask = tgt_mask.to(captions.device)
+
+        # Apply decoder with image features and caption embeddings
+        output = self.transformer(
+            tgt=captions_embedded, memory=features_proj, tgt_mask=tgt_mask
+        )
+        scores = self.output(output)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -120,7 +146,6 @@ class CaptioningTransformer(nn.Module):
             partial_caption = partial_caption.unsqueeze(1)
 
             for t in range(max_length):
-
                 # Predict the next token (ignoring all other time steps).
                 output_logits = self.forward(features, partial_caption)
                 output_logits = output_logits[:, -1, :]
@@ -172,14 +197,23 @@ class TransformerEncoder(nn.Module):
         return output
 
 
-
 class VisionTransformer(nn.Module):
     """
     Vision Transformer (ViT) implementation.
     """
-    def __init__(self, img_size=32, patch_size=8, in_channels=3,
-                 embed_dim=128, num_layers=6, num_heads=4,
-                 dim_feedforward=256, num_classes=10, dropout=0.1):
+
+    def __init__(
+        self,
+        img_size=32,
+        patch_size=8,
+        in_channels=3,
+        embed_dim=128,
+        num_layers=6,
+        num_heads=4,
+        dim_feedforward=256,
+        num_classes=10,
+        dropout=0.1,
+    ):
         """
         Inputs:
          - img_size: Size of input image (assumed square).
@@ -197,14 +231,15 @@ class VisionTransformer(nn.Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         self.positional_encoding = PositionalEncoding(embed_dim, dropout=dropout)
 
-        encoder_layer = TransformerEncoderLayer(embed_dim, num_heads, dim_feedforward, dropout)
+        encoder_layer = TransformerEncoderLayer(
+            embed_dim, num_heads, dim_feedforward, dropout
+        )
         self.transformer = TransformerEncoder(encoder_layer, num_layers=num_layers)
 
         # Final classification layer to predict class scores from pooled token.
         self.head = nn.Linear(embed_dim, num_classes)
 
         self.apply(self._init_weights)
-
 
     def _init_weights(self, module):
         """
@@ -230,7 +265,7 @@ class VisionTransformer(nn.Module):
         """
         N = x.size(0)
         logits = torch.zeros(N, self.num_classes, device=x.device)
-        
+
         ############################################################################
         # TODO: Implement the forward pass of the Vision Transformer.             #
         # 1. Convert the input image into a sequence of patch vectors.            #
@@ -240,10 +275,18 @@ class VisionTransformer(nn.Module):
         #    You may find torch.mean useful.                                      #
         # 5. Feed it through a linear layer to produce class logits.              #
         ############################################################################
-
+        # Convert input image into sequence of patch vectors
+        x = self.patch_embed(x)  # (N, num_patches, embed_dim
+        # Add positional encodings
+        x = self.positional_encoding(x)  # (N, num_patches, embed_dim)
+        # Pass through Transformer encoder
+        x = self.transformer(x)  # (N, num_patches, embed_dim)
+        # Average pool patch vectors to get feature vector for each image
+        x = x.mean(dim=1)  # (N, embed_dim)
+        # Feed through linear layer to produce class logits
+        logits = self.head(x)  # (N, num_classes)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
-
 
         return logits
