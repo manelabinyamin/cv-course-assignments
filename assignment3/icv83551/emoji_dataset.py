@@ -1,14 +1,18 @@
 import os
-from PIL import Image
-import numpy as np
-import torch
-from torch.utils.data import Dataset
-from torchvision import transforms as T
-import joblib
-
+import ssl
+import urllib.request
 
 import clip
+import joblib
+import numpy as np
+import torch
+from PIL import Image
+from torch.utils.data import Dataset
+from torchvision import transforms as T
 from tqdm.auto import tqdm
+
+# Create an unverified SSL context
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def get_text_augs():
@@ -109,6 +113,7 @@ def download_data(fpath):
     if not os.path.exists(fpath):
         print(f"Downloading...{fpath}")
         import urllib.request
+
         fname = os.path.basename(fpath)
         url = f"http://cs231n.stanford.edu/2025/storage/a3/{fname}"
         urllib.request.urlretrieve(url, fpath)
@@ -126,9 +131,11 @@ class EmojiDataset(Dataset):
         text_emb_path="data/text_embeddings.pt",
         num_text_emb_pca=None,
     ):
-        
+
         data_path = os.path.join(os.path.dirname(__file__), "datasets/emoji_data.npz")
-        text_emb_path = os.path.join(os.path.dirname(__file__), "datasets/text_embeddings.pt")
+        text_emb_path = os.path.join(
+            os.path.dirname(__file__), "datasets/text_embeddings.pt"
+        )
         download_data(data_path)
         download_data(text_emb_path)
 

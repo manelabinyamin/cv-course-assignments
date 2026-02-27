@@ -297,24 +297,23 @@ class Unet(nn.Module):
         #    - Make sure to pass the context to each ResNet block.
         ##################################################################
         skips = []
-        for ind, down_block in enumerate(self.downs):
-            x = down_block[0](x, context=context)
+        for Res1, Res2, Down in self.downs:
+            x = Res1(x, context=context)
             skips.append(x)
-            x = down_block[1](x, context=context)
+            x = Res2(x, context=context)
             skips.append(x)
-            x = down_block[2](x)
+            x = Down(x)
 
         x = self.mid_block1(x, context=context)
         x = self.mid_block2(x, context=context)
-        for ind, up_block in enumerate(self.ups):
-            x = up_block[0](x)
+        for Up, Res1, Res2 in self.ups:
+            x = Up(x)
             x = torch.cat((x, skips.pop()), dim=1)
-            x = up_block[1](x, context=context)
+            x = Res1(x, context=context)
             x = torch.cat((x, skips.pop()), dim=1)
-            x = up_block[2](x, context=context)
+            x = Res2(x, context=context)
         ##################################################################
 
         # Final block
         x = self.final_conv(x)
-
         return x
