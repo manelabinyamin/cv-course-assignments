@@ -153,15 +153,7 @@ class CLIPImageRetriever:
 
 class DavisDataset:
     def __init__(self):
-        # download_config = tfds.download.DownloadConfig(
-        #     manual_dir="/home/dsi/manelab/code/cv-course-assignments/assignment3/icv83551/datasets/"
-        # )
-        self.davis = tfds.load(
-            "davis/480p",
-            split="validation",
-            as_supervised=False,
-            # download_and_prepare_kwargs={"download_config": download_config},
-        )
+        self.davis = tfds.load("davis/480p", split="validation", as_supervised=False)
         self.img_tsfm = T.Compose(
             [
                 T.Resize((480, 480)),
@@ -273,7 +265,13 @@ class DINOSegmentation:
         # function to train classify each DINO feature vector into a seg. class.   #
         # It can be a linear layer or two layer neural network.                    #
         ############################################################################
-
+        self.model = nn.Sequential(
+            nn.Linear(inp_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, num_classes),
+        ).to(device)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=1e-3)
+        self.criterion = nn.CrossEntropyLoss()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -290,7 +288,13 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
-
+        self.model.train()
+        for _ in tqdm(range(num_iters)):
+            self.optimizer.zero_grad()
+            outputs = self.model(X_train)
+            loss = self.criterion(outputs, Y_train)
+            loss.backward()
+            self.optimizer.step()
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
@@ -310,7 +314,9 @@ class DINOSegmentation:
         ############################################################################
         # TODO: Train your model for `num_iters` steps.                            #
         ############################################################################
-
+        self.model.eval()
+        outputs = self.model(X_test)
+        pred_classes = outputs.argmax(dim=1)
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
