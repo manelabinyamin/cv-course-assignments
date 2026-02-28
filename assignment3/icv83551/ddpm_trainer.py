@@ -1,8 +1,9 @@
 import math
 import os
+
 import torch
-from torch.utils.data import DataLoader
 from torch.optim import Adam
+from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from tqdm.auto import tqdm
 
@@ -103,6 +104,7 @@ class Trainer(object):
         if not os.path.exists(ckpt_path):
             print(f"Downloading...{ckpt_path}")
             import urllib.request
+
             fname = os.path.basename(ckpt_path)
             url = f"http://cs231n.stanford.edu/2025/storage/a3/{fname}"
             urllib.request.urlretrieve(url, ckpt_path)
@@ -117,9 +119,7 @@ class Trainer(object):
         all_losses = []
 
         with tqdm(initial=self.step, total=self.train_num_steps) as pbar:
-
             while self.step < self.train_num_steps:
-
                 data, model_kwargs = next(self.dl)
                 data = data.to(device)
                 model_kwargs["text_emb"] = model_kwargs["text_emb"].to(device)
